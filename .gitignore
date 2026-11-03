@@ -1,0 +1,38 @@
+# Окружение и кеши
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+*.egg-info/
+
+# IDE и временные файлы
+.idea/
+.vscode/
+.DS_Store
+._*
+Thumbs.db
+*.log
+*.tmp
+*.part
+*.partial
+*.swp
+*~
+
+# Локальные данные и результаты
+/data/
+/reports/figures/
+/dist/
+/build/
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.7z
+
+# Учётные данные
+.env
+.env.*
+!.env.example
+kaggle.json
