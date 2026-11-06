@@ -30,3 +30,5 @@ python -m pip install -e .
 ```
 
 Откройте `notebooks/fashion.ipynb` или `notebooks/text.ipynb` и выполните ячейки по порядку. Ноутбуки установят недостающие библиотеки и скачают данные. Готовые локальные файлы используются повторно.
+
+Скрипты: `scripts/install_dependencies.py` и `scripts/download_data.py`.
