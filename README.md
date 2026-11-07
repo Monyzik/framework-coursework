@@ -32,3 +32,20 @@ python -m pip install -e .
 Откройте `notebooks/fashion.ipynb` или `notebooks/text.ipynb` и выполните ячейки по порядку. Ноутбуки установят недостающие библиотеки и скачают данные. Готовые локальные файлы используются повторно.
 
 Скрипты: `scripts/install_dependencies.py` и `scripts/download_data.py`.
+
+## Разметка текста
+
+Каждый разметчик запускает Docker на своём компьютере и выполняет `docker compose up -d`
+из папки проекта. Откройте `http://localhost:8080` и создайте один проект для текста.
+Проекты и разметка хранятся в томе Docker. Остановка через `docker compose down` сохраняет данные.
+
+Вставьте этот XML в настройки проекта **Labeling Interface → Code**.
+
+```xml
+<View>
+  <Style>.htx-text { white-space: pre-wrap; }</Style>
+  <Text name="source" value="$text" />
+  <TextArea name="correction" toName="source" rows="5" editable="true"
+            required="true" maxSubmissions="1" placeholder="Вставьте полный текст" />
+</View>
+```
