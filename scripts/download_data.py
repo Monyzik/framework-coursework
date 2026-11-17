@@ -8,8 +8,8 @@ from pathlib import Path
 import pandas as pd
 from huggingface_hub import hf_hub_download
 
-FASHION_REVISION = '06f98e7d05c19bb87b2baa352be5110c8e5b4215'
-FASHION_VERSION = '2.0.0'
+FASHION_REVISION = '62b46580464039bdca8b68d323f631d40a4890af'
+FASHION_VERSION = '3.0.0'
 
 
 def download_text(root: Path) -> Path:
