@@ -22,7 +22,6 @@ Thumbs.db
 
 # Локальные данные и результаты
 /data/
-/reports/figures/
 /dist/
 /build/
 *.zip

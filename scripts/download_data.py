@@ -14,7 +14,7 @@ FASHION_IMAGE_COUNT = 3922
 
 
 def download_text(root: Path) -> Path:
-    path = root / 'data/raw/ruspellgold/test.jsonl'
+    path = root / 'data/ruspellgold/test.jsonl'
     path.parent.mkdir(parents=True, exist_ok=True)
     if path.is_file() and path.stat().st_size > 0:
         print('RuSpellGold уже скачан.')
