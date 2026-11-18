@@ -8,8 +8,9 @@ from pathlib import Path
 import pandas as pd
 from huggingface_hub import hf_hub_download
 
-FASHION_REVISION = '62b46580464039bdca8b68d323f631d40a4890af'
-FASHION_VERSION = '3.0.0'
+FASHION_REVISION = '4b3e23d4c0a7efe634b410bacbb44624871d314f'
+FASHION_VERSION = '4.0.0'
+FASHION_IMAGE_COUNT = 3922
 
 
 def download_text(root: Path) -> Path:
@@ -49,51 +50,49 @@ def download_fashion(root: Path) -> None:
         'classes.json': processed / 'classes.json',
         'dataset_info.json': processed / 'dataset_info.json',
     }
-    images_ready = False
-    if metadata_files['image_manifest.csv'].is_file():
-        manifest = pd.read_csv(metadata_files['image_manifest.csv'], dtype={'ImageId': str})
-        images_ready = len(manifest) == 4000 and manifest['ImageId'].is_unique
-        images_ready = images_ready and all(
-            (raw / 'train' / f'{image_id}.jpg').is_file()
-            and (raw / 'train' / f'{image_id}.jpg').stat().st_size > 0
-            for image_id in manifest['ImageId']
-        )
+    def image_path(image_id: str) -> Path:
+        return raw / 'train' / f'{image_id}.jpg'
 
-    ready = images_ready and all(
-        path.is_file() and path.stat().st_size > 0 for path in metadata_files.values()
-    )
-    if ready:
+    def has_image(image_id: str) -> bool:
+        path = image_path(image_id)
+        return path.is_file() and path.stat().st_size > 0
+
+    def valid_manifest(manifest: pd.DataFrame) -> bool:
+        return len(manifest) == FASHION_IMAGE_COUNT and manifest['ImageId'].is_unique
+
+    if all(path.is_file() and path.stat().st_size > 0 for path in metadata_files.values()):
         info = json.loads(metadata_files['dataset_info.json'].read_text())
-        ready = info.get('version') == FASHION_VERSION
+        manifest = pd.read_csv(metadata_files['image_manifest.csv'], dtype={'ImageId': str})
+        if (info.get('version') == FASHION_VERSION and valid_manifest(manifest)
+                and all(map(has_image, manifest['ImageId']))):
+            print(f'Набор {FASHION_VERSION} уже скачан: {len(manifest)} фото.')
+            return
 
-    if ready:
-        print('Фотографии и аннотации уже скачаны.')
-        print('Готово фотографий:', len(manifest))
-        return
+    def release_archive(filename: str) -> zipfile.ZipFile:
+        return zipfile.ZipFile(hf_hub_download(
+            repo_id='Monyzik/fashion-4000',
+            filename=filename,
+            repo_type='dataset',
+            revision=FASHION_REVISION,
+            local_dir=raw / '.hf',
+            token=False,
+        ))
 
-    archive_path = hf_hub_download(
-        repo_id='Monyzik/fashion-4000',
-        filename='fashion-4000-metadata.zip' if images_ready else 'fashion-4000.zip',
-        repo_type='dataset',
-        revision=FASHION_REVISION,
-        local_dir=raw / '.hf',
-        token=False,
-    )
-    with zipfile.ZipFile(archive_path) as archive:
+    with release_archive('fashion-4000-metadata.zip') as archive:
         manifest = pd.read_csv(
             BytesIO(archive.read('fashion-4000/image_manifest.csv')), dtype={'ImageId': str}
         )
-        if len(manifest) != 4000 or not manifest['ImageId'].is_unique:
-            raise ValueError('В архиве ожидались 4000 уникальных фото.')
+        if not valid_manifest(manifest):
+            raise ValueError(f'В архиве ожидались {FASHION_IMAGE_COUNT} уникальных фото.')
         info = json.loads(archive.read('fashion-4000/dataset_info.json'))
         if info.get('version') != FASHION_VERSION:
             raise ValueError('В архиве найдена другая версия аннотаций.')
 
-        def copy_member(member: str, target: Path) -> None:
+        def copy_member(source_zip: zipfile.ZipFile, member: str, target: Path) -> None:
             target.parent.mkdir(parents=True, exist_ok=True)
             temporary = target.with_name(target.name + '.tmp')
             try:
-                with archive.open(member) as source, temporary.open('wb') as destination:
+                with source_zip.open(member) as source, temporary.open('wb') as destination:
                     shutil.copyfileobj(source, destination)
                 if temporary.stat().st_size == 0:
                     raise ValueError(f'Пустой файл: {member}')
@@ -101,20 +100,20 @@ def download_fashion(root: Path) -> None:
             finally:
                 temporary.unlink(missing_ok=True)
 
+        missing = [image_id for image_id in manifest['ImageId'] if not has_image(image_id)]
+        if missing:
+            with release_archive('fashion-4000.zip') as images:
+                for image_id in missing:
+                    copy_member(images, f'fashion-4000/images/{image_id}.jpg', image_path(image_id))
+
         metadata_files['dataset_info.json'].unlink(missing_ok=True)
         for member in ['label_descriptions.json', 'annotations.csv', 'classes.json']:
-            copy_member(f'fashion-4000/{member}', metadata_files[member])
-        for index, image_id in enumerate(manifest['ImageId'], 1):
-            target = raw / 'train' / f'{image_id}.jpg'
-            if not target.is_file() or target.stat().st_size == 0:
-                copy_member(f'fashion-4000/images/{image_id}.jpg', target)
-            if index % 1000 == 0:
-                print(f'Подготовлено фото: {index}/4000')
+            copy_member(archive, f'fashion-4000/{member}', metadata_files[member])
         manifest['file_name'] = 'train/' + manifest['ImageId'] + '.jpg'
         temporary = processed / 'image_manifest.csv.tmp'
         manifest.to_csv(temporary, index=False)
         temporary.replace(metadata_files['image_manifest.csv'])
-        copy_member('fashion-4000/dataset_info.json', metadata_files['dataset_info.json'])
+        copy_member(archive, 'fashion-4000/dataset_info.json', metadata_files['dataset_info.json'])
 
     print('Готово фотографий:', len(manifest))
 
